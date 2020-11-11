@@ -3385,7 +3385,7 @@ function (_Nerv$Component) {
       } // scrollIntoView
 
 
-      if (nextProps.scrollIntoView && typeof nextProps.scrollIntoView === 'string' && document && document.querySelector && document.querySelector("#".concat(nextProps.scrollIntoView))) {
+      if (nextProps.scrollIntoView && typeof nextProps.scrollIntoView === 'string' && document && document.querySelector && document.querySelector("#".concat(nextProps.scrollIntoView) && nextProps.scrollIntoView !== this.props.scrollIntoView)) {
         document.querySelector("#".concat(nextProps.scrollIntoView)).scrollIntoView({
           behavior: 'smooth',
           block: 'center',

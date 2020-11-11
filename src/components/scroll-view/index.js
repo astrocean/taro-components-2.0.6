@@ -109,7 +109,8 @@ class ScrollView extends Nerv.Component {
       typeof nextProps.scrollIntoView === 'string' &&
       document &&
       document.querySelector &&
-      document.querySelector(`#${nextProps.scrollIntoView}`)
+      document.querySelector(`#${nextProps.scrollIntoView}`) &&
+      nextProps.scrollIntoView !== this.props.scrollIntoView
     ) {
       document.querySelector(`#${nextProps.scrollIntoView}`).scrollIntoView({
         behavior: 'smooth',
