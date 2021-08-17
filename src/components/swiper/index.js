@@ -45,6 +45,73 @@ class Swiper extends Nerv.Component {
   }
 
   componentDidMount () {
+    this.reInitSwiper(this.props);
+  }
+
+  componentWillReceiveProps (nextProps) {
+    this.reInitSwiper(nextProps);
+    if (this.mySwiper) {
+      const nextCurrent = typeof nextProps.current === 'number' ? nextProps.current : this._$current || 0
+      if(this._$prevPropsCurrent===nextProps.current){
+        return;
+      }
+
+      this._$prevPropsCurrent= nextProps.current;
+      // 是否衔接滚动模式
+      if (nextProps.circular) {
+        this.mySwiper.loopDestroy()
+        this.mySwiper.loopCreate()
+        if (!this.mySwiper.isBeginning && !this.mySwiper.isEnd) {
+          this.mySwiper.slideToLoop(parseInt(nextCurrent, 10)) // 更新下标
+        }
+      } else {
+        this.mySwiper.slideTo(parseInt(nextCurrent, 10) + 1) // 更新下标
+      }
+
+      // if(nextProps.autoplay){
+      //   const autoplay = this.mySwiper.autoplay
+      //   // 判断是否需要停止或开始自动轮播
+      //   if (autoplay.running !== nextProps.autoplay) {
+      //     if (nextProps.autoplay) {
+      //       autoplay.start()
+      //     } else {
+      //       autoplay.stop()
+      //     }
+      //   }
+      //   if (nextProps.autoplay && !autoplay.paused) {
+      //     autoplay.run()
+      //     autoplay.paused = false
+      //   }
+      // }
+
+      // this.mySwiper.update() // 更新子元素
+    }
+  }
+
+  componentDidUpdate (preProps) {
+    if (!this.mySwiper){
+      return;
+    } 
+    if (preProps.children.length === 0 && this.props.children.length > 0 && this.props.circular) {
+      this.mySwiper.loopDestroy()
+      this.mySwiper.loopCreate()
+    }
+    
+    // if (this.props.autoplay) {
+    //   if (this._$width !== this.mySwiper.width || this._$height !== this.mySwiper.height) {
+    //     this.mySwiper.autoplay.run()
+    //   }
+    // }
+    // this._$width = this.mySwiper.width
+    // this._$height = this.mySwiper.height
+  }
+
+  componentWillUnmount () {
+    this.$el = null
+    if (this.mySwiper) this.mySwiper.destroy()
+  }
+   
+  reInitSwiper(props){
     const {
       autoplay = false,
       interval = 5000,
@@ -52,15 +119,44 @@ class Swiper extends Nerv.Component {
       current = 0,
       displayMultipleItems = 1,
       vertical,
+      circular=false,
       spaceBetween
-    } = this.props
+    } = props
+
+    let currentPropsStr=JSON.stringify({
+      autoplay,
+      interval,
+      duration,
+      displayMultipleItems,
+      vertical,
+      circular,
+      spaceBetween
+    });
+
+    if(currentPropsStr===this._$lastProps){
+      return;
+    }
+
+    if(this.mySwiper){
+      this.mySwiper.destroy();
+    }
+
+    this._$lastProps = JSON.stringify({
+      autoplay,
+      interval,
+      duration,
+      displayMultipleItems,
+      vertical,
+      circular,
+      spaceBetween
+    });
 
     const that = this
     const opt = {
       // 指示器
       pagination: { el: `.taro-swiper-${this._id} > .swiper-container > .swiper-pagination` },
       direction: vertical ? 'vertical' : 'horizontal',
-      loop: true,
+      loop: circular,
       slidesPerView: parseFloat(displayMultipleItems, 10),
       initialSlide: parseInt(current, 10),
       speed: parseInt(duration, 10),
@@ -89,10 +185,12 @@ class Swiper extends Nerv.Component {
                 current: this.mySwiper.realIndex
               }
             })
-            if (this.mySwiper.isBeginning) {
-              this.mySwiper.slideToLoop(this.props.children.length - 1, 0)
-            } else if (this.mySwiper.isEnd) {
-              this.mySwiper.slideToLoop(0, 0)
+            if(circular){
+              if (this.mySwiper.isBeginning) {
+                this.mySwiper.slideToLoop(this.props.children.length - 1, 0)
+              } else if (this.mySwiper.isEnd) {
+                this.mySwiper.slideToLoop(0, 0)
+              }
             }
           } catch (err) {}
           that.handleOnAnimationFinish(e)
@@ -127,59 +225,6 @@ class Swiper extends Nerv.Component {
     setTimeout(() => {
       this.mySwiper.update()
     }, 500)
-  }
-
-  componentWillReceiveProps (nextProps) {
-    if (this.mySwiper) {
-      const nextCurrent = typeof nextProps.current === 'number' ? nextProps.current : this._$current || 0
-
-      this.mySwiper.loopDestroy()
-      this.mySwiper.loopCreate()
-      // 是否衔接滚动模式
-      if (nextProps.circular) {
-        if (!this.mySwiper.isBeginning && !this.mySwiper.isEnd) {
-          this.mySwiper.slideToLoop(parseInt(nextCurrent, 10)) // 更新下标
-        }
-      } else {
-        this.mySwiper.slideTo(parseInt(nextCurrent, 10) + 1) // 更新下标
-      }
-
-      const autoplay = this.mySwiper.autoplay
-      // 判断是否需要停止或开始自动轮播
-      if (autoplay.running !== nextProps.autoplay) {
-        if (nextProps.autoplay) {
-          autoplay.start()
-        } else {
-          autoplay.stop()
-        }
-      }
-      if (nextProps.autoplay && !autoplay.paused) {
-        autoplay.run()
-        autoplay.paused = false
-      }
-
-      this.mySwiper.update() // 更新子元素
-    }
-  }
-
-  componentDidUpdate (preProps) {
-    if (preProps.children.length === 0 && this.props.children.length > 0) {
-      this.mySwiper.loopDestroy()
-      this.mySwiper.loopCreate()
-    }
-    if (!this.mySwiper) return
-    if (this.props.autoplay) {
-      if (this._$width !== this.mySwiper.width || this._$height !== this.mySwiper.height) {
-        this.mySwiper.autoplay.run()
-      }
-    }
-    this._$width = this.mySwiper.width
-    this._$height = this.mySwiper.height
-  }
-
-  componentWillUnmount () {
-    this.$el = null
-    if (this.mySwiper) this.mySwiper.destroy()
   }
 
   handleOnChange (e) {

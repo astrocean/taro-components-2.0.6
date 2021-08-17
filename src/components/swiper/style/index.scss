@@ -1,9 +1,25 @@
 .swiper-container {
-    height: 150px;
+    position: relative;
+    overflow: hidden;
+    // min-height: 150px;
+    height: 100%;
+    width: 100%;
 }
 .swiper-pagination {
     font-size: 0;
+    position: absolute;
+    text-align: center;
+    transition: all 0.3s;
+    z-index: 10;
 }
 .swiper-pagination-bullet {
-    opacity: 1
+    opacity: 1;
+    border-radius: 100%;
+    background: rgba(0, 0, 0, .3);
+    width: 8px;
+    height: 8px;
+    display: inline-block;
+}
+.swiper-pagination-bullet.active {
+    background: #000000;
 }
