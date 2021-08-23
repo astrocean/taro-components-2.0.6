@@ -65,7 +65,7 @@ class Swiper extends Nerv.Component {
           this.mySwiper.slideToLoop(parseInt(nextCurrent, 10)) // 更新下标
         }
       } else {
-        this.mySwiper.slideTo(parseInt(nextCurrent, 10) + 1) // 更新下标
+        this.mySwiper.slideTo(parseInt(nextCurrent, 10)) // 更新下标
       }
 
       // if(nextProps.autoplay){
@@ -211,7 +211,7 @@ class Swiper extends Nerv.Component {
     if (autoplay) {
       opt.autoplay = {
         delay: parseInt(interval, 10),
-        stopOnLastSlide: true,
+        stopOnLastSlide: false,
         disableOnInteraction: false
       }
     }
