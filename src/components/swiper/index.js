@@ -17,7 +17,7 @@ class SwiperItem extends Nerv.Component {
       style={style}
       item-id={itemId}
       {...restProps}>
-      {children}
+      {this.props.children}
     </div>
   }
 }
@@ -40,8 +40,7 @@ class Swiper extends Nerv.Component {
     this._id = INSTANCE_ID + 1
     INSTANCE_ID++
     this._$current = 0
-    this._$width = 0
-    this._$height = 0
+    this.state={};
   }
 
   componentDidMount () {
@@ -50,67 +49,31 @@ class Swiper extends Nerv.Component {
 
   componentWillReceiveProps (nextProps) {
     this.reInitSwiper(nextProps);
-    if (this.mySwiper) {
-      const nextCurrent = typeof nextProps.current === 'number' ? nextProps.current : this._$current || 0
-      if(this._$prevPropsCurrent===nextProps.current){
-        return;
-      }
-
-      this._$prevPropsCurrent= nextProps.current;
-      // 是否衔接滚动模式
-      if (nextProps.circular) {
-        this.mySwiper.loopDestroy()
-        this.mySwiper.loopCreate()
-        if (!this.mySwiper.isBeginning && !this.mySwiper.isEnd) {
-          this.mySwiper.slideToLoop(parseInt(nextCurrent, 10)) // 更新下标
-        }
-      } else {
-        this.mySwiper.slideTo(parseInt(nextCurrent, 10)) // 更新下标
-      }
-
-      // if(nextProps.autoplay){
-      //   const autoplay = this.mySwiper.autoplay
-      //   // 判断是否需要停止或开始自动轮播
-      //   if (autoplay.running !== nextProps.autoplay) {
-      //     if (nextProps.autoplay) {
-      //       autoplay.start()
-      //     } else {
-      //       autoplay.stop()
-      //     }
-      //   }
-      //   if (nextProps.autoplay && !autoplay.paused) {
-      //     autoplay.run()
-      //     autoplay.paused = false
-      //   }
-      // }
-
-      // this.mySwiper.update() // 更新子元素
-    }
-  }
-
-  componentDidUpdate (preProps) {
-    if (!this.mySwiper){
-      return;
-    } 
-    if (preProps.children.length === 0 && this.props.children.length > 0 && this.props.circular) {
-      this.mySwiper.loopDestroy()
-      this.mySwiper.loopCreate()
-    }
-    
-    // if (this.props.autoplay) {
-    //   if (this._$width !== this.mySwiper.width || this._$height !== this.mySwiper.height) {
-    //     this.mySwiper.autoplay.run()
-    //   }
-    // }
-    // this._$width = this.mySwiper.width
-    // this._$height = this.mySwiper.height
-  }
-
+  } 
   componentWillUnmount () {
     this.$el = null
     if (this.mySwiper) this.mySwiper.destroy()
   }
+  componentDidUpdate(){
+    if(this.mySwiper&&this.shouldUpdateSwiper){
+      this.updateSwiper();
+      this.shouldUpdateSwiper=false;
+    }
+  }
+  updateSwiper(){
+    this.updateSWiperTimer&&clearTimeout(this.updateSWiperTimer);
+    this.updateSWiperTimer=setTimeout(()=>{
+      if(this.mySwiper){
+        if(this.mySwiper.params&&this.mySwiper.params.loop){
+          this.mySwiper.loopDestroy();
+          this.mySwiper.loopCreate();
+        }
+        this.mySwiper.update();
+      }
+    },200);
    
+  }
+  
   reInitSwiper(props){
     const {
       autoplay = false,
@@ -120,47 +83,132 @@ class Swiper extends Nerv.Component {
       displayMultipleItems = 1,
       vertical,
       circular=false,
-      spaceBetween
+      spaceBetween,
+      noSwipingClass,
+      indicatorColor, 
+      indicatorActiveColor,
+      indicatorDots,
+      className,
+      style, 
+      previousMargin, 
+      nextMargin
     } = props
 
     let currentPropsStr=JSON.stringify({
       autoplay,
+      current,
       interval,
       duration,
       displayMultipleItems,
       vertical,
       circular,
-      spaceBetween
+      spaceBetween,
+      noSwipingClass,
     });
+
+    let currentStatePropsStr=JSON.stringify({
+      indicatorColor, 
+      indicatorActiveColor,
+      indicatorDots,
+      className,
+      style, 
+      vertical, 
+      previousMargin, 
+      nextMargin
+    });
+
+    if(currentStatePropsStr!==this._$lastStateProps){
+      this._$lastStateProps=currentStatePropsStr;
+      this.setState({
+        paginationCls:classNames(
+          'swiper-pagination',
+          {
+            'swiper-pagination-hidden': !indicatorDots,
+            'swiper-pagination-bullets':indicatorDots
+          }
+        ),
+        defaultIndicatorColor : indicatorColor || 'rgba(0, 0, 0, .3)',
+        defaultIndicatorActiveColor : indicatorActiveColor || '#000',
+        cls : classNames(`taro-swiper-${this._id}`, className),
+        sty :Object.assign({
+          paddingTop: vertical ? this.parsePX(previousMargin) : 0,
+          paddingRight: vertical ? 0 : this.parsePX(nextMargin),
+          paddingBottom: vertical ? this.parsePX(nextMargin) : 0,
+          paddingLeft: vertical ? 0 : this.parsePX(previousMargin),
+          overflow: 'hidden'
+        }, style)
+      });
+    }
+    
 
     if(currentPropsStr===this._$lastProps){
+      // this.updateSwiper();
       return;
     }
-
+    
+    let direction= vertical ? 'vertical' : 'horizontal';
+    let slidesPerView=parseFloat(displayMultipleItems, 10);
+    let speed= parseInt(duration, 10);
     if(this.mySwiper){
-      this.mySwiper.destroy();
+      let diffProps={};
+      let notInitParams=['vertical','displayMultipleItems','duration','spaceBetween','current']
+      let shouldInit=false;
+      try{
+        let lastProps=JSON.parse(this._$lastProps||'{}');
+        let currentProps=JSON.parse(currentPropsStr);
+        diffProps=Object.entries(currentProps).filter(([prop,value])=>{
+          return lastProps[prop]!==value;
+        }).reduce((currentObj,[prop,value])=>{
+          currentObj[prop]=value;
+          shouldInit=!notInitParams.includes(prop);
+          return currentObj;
+        },{});
+        
+      }catch(e){
+  
+      }
+
+      if(!shouldInit){
+        if('vertical' in diffProps){
+          this.mySwiper.changeDirection(direction);
+        }
+        if('displayMultipleItems' in diffProps){
+          this.mySwiper.params.slidesPerView=slidesPerView;
+        }
+        if('duration' in diffProps){
+          this.mySwiper.params.speed=speed;
+        }
+        if('spaceBetween' in diffProps){
+          this.mySwiper.params.spaceBetween=spaceBetween;
+        }
+        if('current' in diffProps){
+          // 是否衔接滚动模式
+          if (circular) {
+            if (!this.mySwiper.isBeginning && !this.mySwiper.isEnd) {
+              this.mySwiper.slideToLoop(parseInt(current, 10)) // 更新下标
+            }
+          } else {
+            this.mySwiper.slideTo(parseInt(current, 10)) // 更新下标
+          }
+        }
+        this._$lastProps = currentPropsStr;
+        return;
+      }
     }
 
-    this._$lastProps = JSON.stringify({
-      autoplay,
-      interval,
-      duration,
-      displayMultipleItems,
-      vertical,
-      circular,
-      spaceBetween
-    });
+    this._$lastProps = currentPropsStr;
 
     const that = this
     const opt = {
       // 指示器
       pagination: { el: `.taro-swiper-${this._id} > .swiper-container > .swiper-pagination` },
-      direction: vertical ? 'vertical' : 'horizontal',
+      direction:direction,
       loop: circular,
-      slidesPerView: parseFloat(displayMultipleItems, 10),
+      slidesPerView:slidesPerView,
       initialSlide: parseInt(current, 10),
-      speed: parseInt(duration, 10),
+      speed:speed,
       observer: true,
+      observeSlideChildren:true,
       observeParents: true,
       on: {
         slideChange () {
@@ -184,19 +232,20 @@ class Swiper extends Nerv.Component {
               value: {
                 current: this.mySwiper.realIndex
               }
-            })
-            if(circular){
-              if (this.mySwiper.isBeginning) {
-                this.mySwiper.slideToLoop(this.props.children.length - 1, 0)
-              } else if (this.mySwiper.isEnd) {
-                this.mySwiper.slideToLoop(0, 0)
-              }
-            }
+            });
           } catch (err) {}
           that.handleOnAnimationFinish(e)
         },
         observerUpdate: (e) => {
-          if (e.target && e.target.className === 'taro_page' && e.target.style.display === 'block' && e.target.contains(this.$el)) {
+          if(this.$el===e.target){
+            this.shouldUpdateSwiper=true;
+          }
+          
+          if (e.target 
+            && e.target.className === 'taro_page' 
+            && e.target.style.display === 'block' 
+            && e.target.contains(this.$el)
+            ) {
             if (this.props.autoplay) {
               setTimeout(() => {
                 this.mySwiper.slideTo(this._$current)
@@ -221,10 +270,17 @@ class Swiper extends Nerv.Component {
       opt.spaceBetween = spaceBetween
     }
 
-    this.mySwiper = new Swipers(this.$el, opt)
-    setTimeout(() => {
-      this.mySwiper.update()
-    }, 500)
+    if(noSwipingClass){
+      opt.noSwiping = true;
+      opt.noSwipingClass = noSwipingClass;
+    }
+
+    if(this.mySwiper){
+      this.mySwiper.destroy(true,true);
+    }
+
+    this.mySwiper = new Swipers(this.$el, opt);
+    this.shouldUpdateSwiper=true;
   }
 
   handleOnChange (e) {
@@ -242,27 +298,20 @@ class Swiper extends Nerv.Component {
   }
 
   render () {
-    const { className, style, vertical, previousMargin, nextMargin, indicatorColor, indicatorActiveColor } = this.props
-    const defaultIndicatorColor = indicatorColor || 'rgba(0, 0, 0, .3)'
-    const defaultIndicatorActiveColor = indicatorActiveColor || '#000'
-    const cls = classNames(`taro-swiper-${this._id}`, className)
-    const sty = Object.assign({
-      paddingTop: vertical ? this.parsePX(previousMargin) : 0,
-      paddingRight: vertical ? 0 : this.parsePX(nextMargin),
-      paddingBottom: vertical ? this.parsePX(nextMargin) : 0,
-      paddingLeft: vertical ? 0 : this.parsePX(previousMargin),
-      overflow: 'hidden'
-    }, style)
-    const paginationCls = classNames(
-      'swiper-pagination',
-      {
-        'swiper-pagination-hidden': !this.props.indicatorDots,
-        'swiper-pagination-bullets': this.props.indicatorDots
-      }
-    )
+    const {
+      paginationCls,
+      defaultIndicatorColor,
+      defaultIndicatorActiveColor,
+      cls,
+      sty
+    }=this.state;
+
     return (
       <div className={`swiper-container-wrapper ${cls}`} style={sty}>
-        <div className='swiper-container' style={{ overflow: 'visible' }} ref={(el) => { this.$el = el }}>
+        <div 
+          className='swiper-container' 
+          style={{ overflow: 'visible' }} 
+          ref={(el) => { this.$el = el }}>
           <div
             dangerouslySetInnerHTML={{
               __html: `<style type='text/css'>
