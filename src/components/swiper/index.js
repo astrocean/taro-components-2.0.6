@@ -6,7 +6,42 @@ import Swipers from 'swiper'
 import 'swiper/dist/css/swiper.min.css'
 import './style/index.scss'
 
-let INSTANCE_ID = 0
+let INSTANCE_ID = 0;
+
+
+let matches=Element.prototype.matches
+|| Element.prototype.msMatchesSelector 
+|| Element.prototype.webkitMatchesSelector;
+
+let closest = (elm,selector) =>{
+  let el=elm;
+  let tagNames=[];
+  if (!document.documentElement.contains(el)){
+      return {
+        elm:null,
+        selector:''
+      };
+  } 
+  do {
+      tagNames.push(el.tagName);
+      if (matches.call(el,selector)){
+        let realTagNames=tagNames.reverse();
+        realTagNames.shift();
+        realTagNames.unshift(selector);
+          return {
+            elm:el,
+            selector:realTagNames.join('>')
+          };
+      }
+      el = el.parentElement;
+  } while (el !== null);
+
+  return {
+    elm:null,
+    selector:''
+  };
+};
+
 
 class SwiperItem extends Nerv.Component {
   render () {
@@ -60,6 +95,7 @@ class Swiper extends Nerv.Component {
       this.shouldUpdateSwiper=false;
     }
   }
+  
   updateSwiper(){
     this.updateSWiperTimer&&clearTimeout(this.updateSWiperTimer);
     this.updateSWiperTimer=setTimeout(()=>{
@@ -71,7 +107,6 @@ class Swiper extends Nerv.Component {
         this.mySwiper.update();
       }
     },200);
-   
   }
   
   reInitSwiper(props){
@@ -211,6 +246,39 @@ class Swiper extends Nerv.Component {
       observeSlideChildren:true,
       observeParents: true,
       on: {
+        tap(event){
+          let $swiperItem=event.target.closest('.swiper-slide');
+          if(!$swiperItem.classList.contains('swiper-slide-duplicate')){
+            return;
+          }
+          let targetSelectorInfo=closest(event.target,'.swiper-slide');
+          if(!targetSelectorInfo.selector){
+            return;
+          }
+          let sameElms=$swiperItem.querySelectorAll(targetSelectorInfo.selector);
+          let targetIndex=[...sameElms].indexOf(event.target);
+          let originElm=this.$wrapperEl
+              .children(`.swiper-slide[data-swiper-slide-index="${this.realIndex}"]:not(.swiper-slide-duplicate)`)
+              .eq(0);
+          if(!originElm){
+                return;
+          }
+          let originTarget=originElm.find(targetSelectorInfo.selector)[targetIndex];
+          if(!originTarget){
+            return;
+          }
+          if(originTarget.click) {
+            originTarget.click();
+          }else{
+              try{
+                  var evt = document.createEvent('Event');
+                  evt.initEvent('click',true,true);
+                  originTarget.dispatchEvent(evt);
+              }catch(e){
+                console.log(e);
+              };       
+          }
+        },
         slideChange () {
           const e = createEvent('touchend')
           try {
@@ -236,21 +304,41 @@ class Swiper extends Nerv.Component {
           } catch (err) {}
           that.handleOnAnimationFinish(e)
         },
-        observerUpdate: (e) => {
-          if(this.$el===e.target){
-            this.shouldUpdateSwiper=true;
+        observerUpdate: (mutationRecord) => {
+          if (!mutationRecord.target) {
+            return;
           }
-          
-          if (e.target 
-            && e.target.className === 'taro_page' 
-            && e.target.style.display === 'block' 
-            && e.target.contains(this.$el)
-            ) {
-            if (this.props.autoplay) {
-              setTimeout(() => {
-                this.mySwiper.slideTo(this._$current)
-              }, 1000)
-            }
+          let target = mutationRecord.target;
+
+          if (target.classList.contains('swiper-container-wrapper') 
+          || this.$el === target
+          || this.$el && this.$el.contains(target)
+          ) {
+              if (mutationRecord.type === 'childList') {
+                  if (mutationRecord.removedNodes.length > 0) {
+                      let  notDuplicateItem = [...mutationRecord.removedNodes].some((item) => {
+                          return !item.classList.contains('swiper-slide-duplicate');
+                      });
+                      //复制出来的节点不触发更新
+                      if (!notDuplicateItem) {
+                          return;
+                      }
+                  }
+              }
+              // console.log('====> shouldUpdateSwiper');
+              this.shouldUpdateSwiper = true;
+          }
+            
+
+          if (target.classList.contains('taro_page')
+              && target.style.display === 'block' 
+              && target.contains(this.$el)
+          ) {
+              if (this.props.autoplay) {
+                  setTimeout(() => {
+                      this.mySwiper.slideTo(this._$current);
+                  }, 1000);
+              }
           }
         }
       }
